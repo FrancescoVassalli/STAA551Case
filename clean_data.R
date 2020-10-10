@@ -45,9 +45,10 @@ toyota.df$KM.sqrt <- sqrt(toyota.df$KM)
 plot(toyota.df$Weight, toyota.df$Price) #Doesnt look like much of a relationship at all here
 plot(toyota.df$Period, toyota.df$Price) #Not entirely sure whats going on here, should this be a factor? 
 plot(toyota.df$Age, toyota.df$KM) #unsurprisingly, somewhat of a relationship between KM and age, although the sqrt(KM) variable is more linear
-write_csv(toyota.df, "cleanedToyotadata.csv")
 
 boxcox.lm <- lm(Price ~ KM.sqrt + Age + HP + QuartTax + Weight, data = toyota.df)
 boxcox(boxcox.lm)
 abline(v = .5)
 toyota.df$Price.sqrt <- sqrt(toyota.df$Price)
+
+write_csv(toyota.df, "cleanedToyotadata.csv")
