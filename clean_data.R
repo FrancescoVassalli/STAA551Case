@@ -2,7 +2,7 @@ neededPackages <- c("tidyverse"
                    , "magrittr"
                    , "rstudioapi"
                    , "rlang"
-                   , "MASS"
+                   , "car"
                    #add more packages if needed here
 )
 
@@ -15,7 +15,7 @@ for (i in neededPackages){
 rm(i, neededPackages)
 
 wd <- getActiveDocumentContext()$path %>% dirname() %>% setwd()
-toyota.df <- read_csv('ToyotaCorollaData.csv')
+toyota.df <- na.omit(read_csv('ToyotaCorollaData.csv'))
 head(toyota.df)
 toyota.df %<>% select(-c('Mfg_Month', 'Mfg_Year', 'Cylinders')) 
 toyota.df$Fuel_Type %<>% as.factor()
@@ -47,8 +47,14 @@ plot(toyota.df$Period, toyota.df$Price) #Not entirely sure whats going on here, 
 plot(toyota.df$Age, toyota.df$KM) #unsurprisingly, somewhat of a relationship between KM and age, although the sqrt(KM) variable is more linear
 
 boxcox.lm <- lm(Price ~ KM.sqrt + Age + HP + QuartTax + Weight, data = toyota.df)
-boxcox(boxcox.lm)
+boxCox(boxcox.lm)
 abline(v = .5)
-toyota.df$Price.sqrt <- sqrt(toyota.df$Price)
+
+summary(powerTransform(cbind(KM, Age, HP, QuartTax) ~ 1, toyota.df))
+
+toyota.df$Price.log <- log(toyota.df$Price)
+toyota.df$HP.cube <- toyota.df$HP^(-.33)
+toyota.df$QuartTax.cube <- toyota.df$QuartTax^(.33)
 
 write_csv(toyota.df, "cleanedToyotadata.csv")
+
