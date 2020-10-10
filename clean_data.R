@@ -2,6 +2,7 @@ neededPackages <- c("tidyverse"
                    , "magrittr"
                    , "rstudioapi"
                    , "rlang"
+                   , "MASS"
                    #add more packages if needed here
 )
 
@@ -46,3 +47,7 @@ plot(toyota.df$Period, toyota.df$Price) #Not entirely sure whats going on here, 
 plot(toyota.df$Age, toyota.df$KM) #unsurprisingly, somewhat of a relationship between KM and age, although the sqrt(KM) variable is more linear
 write_csv(toyota.df, "cleanedToyotadata.csv")
 
+boxcox.lm <- lm(Price ~ KM.sqrt + Age + HP + QuartTax + Weight, data = toyota.df)
+boxcox(boxcox.lm)
+abline(v = .5)
+toyota.df$Price.sqrt <- sqrt(toyota.df$Price)
