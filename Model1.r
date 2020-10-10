@@ -19,33 +19,57 @@ rm(i, neededPackages)
 
 wd <- getwd()
 toyota.df <- read_csv("cleanedToyotadata.csv")
+toyota.df$Fuel_Type %<>% as.factor()
+toyota.df$Metallic %<>% as.factor()
+toyota.df$Automatic %<>% as.factor()
+toyota.df$Doors %<>% as.factor()
+toyota.df$Gears %<>% as.factor()
+toyota.df$BOVAG %<>% as.factor()
+toyota.df$Guarantee %<>% as.factor()
 head(toyota.df)
 
-toyota.df$Doors_clean<- to_list(for (x in toyota.df$Doors) if (x>=4) 1 else 0)
-toyota.df$Fuel_clean<- to_list(for (x in toyota.df$Fuel_Type) if (x=='Diesel') 1 else 0)
-toyota.df <- as.data.frame(lapply(toyota.df, unlist))
+mod.df = toyota.df[ , -which(names(toyota.df) %in% c("HP","QuartTax","KM","Period","Price","Fuel_Type","Doors"))]
 
+head(mod.df)
 
-toyota.df$Price_log<- log(toyota.df$Price)
-toyota.df$KM_log<- log(toyota.df$KM)    
-toyota.df$Age_log<- log(toyota.df$Age)    
+df.factors=toyota.df[,-which(sapply(toyota.df, class) == "factor")]
+df.factors = df.factors[ , -which(names(df.factors) %in% c("KM","Price","QuartTax"))]
 
-head(toyota.df)
+head(df.factors)
 
-mod.df = toyota.df[ , -which(names(toyota.df) %in% c("Age_log","KM.sqrt","KM","Period","Price","Fuel_Type","Doors"))]
+fit.nofactor = lm(df.factors$Price.log~.,data=df.factors)
+summary(fit.nofactor)
 
-fit = lm(mod.df$Price_log~.,data=mod.df)
+fit = lm(mod.df$Price.log~.,data=mod.df)
 summary(fit)
 
-backAIC = step(fit,direction="backward",data=mod.fit)
+vif(fit)
 
-summary(backAIC)
+mod.df.small =mod.df %>% select(-c('CC', 'Automatic', 'Metallic','Doors_clean','Gears'))
 
-vif(backAIC)
+fit.small = lm(mod.df.small$Price.log~.,data=mod.df.small)
+summary(fit.small)
 
-mod.fit.int1 = lm(Price_log~Age + HP + QuartTax+(QuartTax*Fuel_clean) + Weight + Guarantee + 
-    BOVAG +Fuel_clean + KM_log + (KM_log*Age),data=mod.df)
+fit.int1 = lm(mod.df.small$Price.log~Age+Weight+Guarantee+BOVAG+KM.sqrt+HP.cube+QuartTax.cube+Fuel_clean+(QuartTax.cube*Fuel_clean),data=mod.df.small)
+summary(fit.int1)
 
-summary(mod.fit.int1)
+fit.int2 = lm(mod.df.small$Price.log~Age+Weight+Guarantee+BOVAG+KM.sqrt+HP.cube+QuartTax.cube+Fuel_clean+(QuartTax.cube*Fuel_clean)+(QuartTax.cube*Weight),data=mod.df.small)
+summary(fit.int2)
+
+plot(fit.int2,1)
+
+plot(fit.int2,2)
+
+plot(fit.int2,3)
+
+plot(fit.int2,4)
+
+toyota.df[222,]
+
+boxplot(toyota.df$Weight)
+
+mod.df.small[222,]
+
+boxplot(mod.df.small$Age)
 
 
