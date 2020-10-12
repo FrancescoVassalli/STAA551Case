@@ -57,4 +57,17 @@ toyota.df$HP.cube <- toyota.df$HP^(-.33)
 toyota.df$QuartTax.cube <- toyota.df$QuartTax^(.33)
 
 write_csv(toyota.df, "cleanedToyotadata.csv")
+cor(toyota.df$QuartTax, toyota.df$Weight)
+summary(boxcox.lm)
+#### incorporate everything below
 
+toyota.df$CC[toyota.df$CC>10000]<-1600 # replace typo
+toyota.df$Fuel.clean<- to_list(for (x in toyota.df$Fuel_Type) if (x=='Diesel') 1 else 0)
+#only 28 of the 694 are automatic? That seems odd, but even if that's backwards it won't affect the model, only the interpretation of the results. 
+#55 of the 694 have 4 doors (Including trunk door) which is, uh, something
+toyota.df$Doors.clean<- to_list(for (x in toyota.df$Doors) if (x>=4) 1 else 0
+
+
+#Look at this one, way too heavy
+toyota.df[222,]
+summary()
