@@ -16,7 +16,10 @@ rm(i, neededPackages)
 
 wd <- getActiveDocumentContext()$path %>% dirname() %>% setwd()
 toyota.df <- na.omit(read_csv('ToyotaCorollaData.csv'))
-head(toyota.df)
+
+toyota.df$Fuel_Type <- --(toyota.df$Fuel_Type == 'Diesel')
+toyota.df$Doors <- --(toyota.df$Doors >= 4)
+
 toyota.df %<>% select(-c('Mfg_Month', 'Mfg_Year', 'Cylinders')) 
 toyota.df$Fuel_Type %<>% as.factor()
 toyota.df$Metallic %<>% as.factor()
@@ -25,7 +28,8 @@ toyota.df$Doors %<>% as.factor()
 toyota.df$Gears %<>% as.factor()
 toyota.df$BOVAG %<>% as.factor()
 toyota.df$Guarantee %<>% as.factor()
-toyota.df$CC %<>% as.factor() #open to arguments that this shouldnt be factor
+
+toyota.df$CC[toyota.df$CC>10000]<-toyota.df$CC[toyota.df$CC>10000]/10 # replace typo
 
 summary(toyota.df)
 #Only 13 of fuel type CNG, or compressed natural gas. Typically these sorts of vehicles are busses
@@ -46,6 +50,8 @@ plot(toyota.df$Weight, toyota.df$Price) #Doesnt look like much of a relationship
 plot(toyota.df$Period, toyota.df$Price) #Not entirely sure whats going on here, should this be a factor? 
 plot(toyota.df$Age, toyota.df$KM) #unsurprisingly, somewhat of a relationship between KM and age, although the sqrt(KM) variable is more linear
 
+
+
 boxcox.lm <- lm(Price ~ KM.sqrt + Age + HP + QuartTax + Weight, data = toyota.df)
 boxCox(boxcox.lm)
 abline(v = .5)
@@ -57,4 +63,5 @@ toyota.df$HP.cube <- toyota.df$HP^(-.33)
 toyota.df$QuartTax.cube <- toyota.df$QuartTax^(.33)
 
 write_csv(toyota.df, "cleanedToyotadata.csv")
-
+cor(toyota.df$QuartTax, toyota.df$Weight)
+summary(boxcox.lm)
