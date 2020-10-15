@@ -28,13 +28,15 @@ toyota.df$BOVAG %<>% as.factor()
 toyota.df$Guarantee %<>% as.factor()
 head(toyota.df)
 
-fitW = lm(Price.sqrt~Age+CC+Guarantee+BOVAG+KM.sqrt+HP.cube+QuartTax.cube+I(Weight^-2)+I(Weight^-3)+I(Weight^-4),data=toyota.df)
+fitW = lm(log(Price)~Age+CC+Guarantee+BOVAG+Guarantee+KM.sqrt+HP.cube+QuartTax.cube+Weight,data=toyota.df)
 summary(fitW)
 
-plot(fitW,5)
+plot(fitW,1)
 
-toyota.df[601,]
+plot(fitW,2)
 
-boxplot(toyota.df$CC)
+toyota.df[601,1-ncol(toyota.df)]
+
+boxplot(toyota.df$KM) 
 
 
