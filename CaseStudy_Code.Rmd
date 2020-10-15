@@ -105,6 +105,17 @@ vif(fit_final)
 
 par(mfrow=c(2,2))
 plot(fit_final, 1:4)
+
+
+### I tried WLs with both KM and Weight and it didn't improve variance at all 
+fit_KM <- lm(Price.log ~ KM, data = toyota.df)
+absres <- abs(summary(fit_weight)$residuals)
+lm_res <- lm(absres ~ toyota.df$Weight)
+est.var <-  (fitted(lm_res))^2 
+fit_wls <- lm(Price.log ~ KM, weights = 1/est.var, data=toyota.df)
+summary(fit_KM)
+summary(fit_wls)
+
 ```
 
 
