@@ -18,10 +18,15 @@ for (i in neededPackages){
 rm(i, neededPackages)
 
 wd <- getwd()
+
 toyota.df <- read_csv("cleanedToyotadata.csv")
+
+toyota.df$Doors4 <- --(toyota.df$Doors == 4)
+toyota.df$Doors5 <- --(toyota.df$Doors == 5)
+
 toyota.df$Metallic %<>% as.factor()
 toyota.df$Automatic %<>% as.factor()
-toyota.df$Fuel_Type%<>% as.factor()
+toyota.df$Fuel_Type %<>% as.factor()
 toyota.df$Doors4%<>% as.factor()
 toyota.df$Doors5%<>% as.factor()
 toyota.df$Gears %<>% as.factor()
@@ -29,43 +34,38 @@ toyota.df$BOVAG %<>% as.factor()
 toyota.df$Guarantee %<>% as.factor()
 head(toyota.df)
 
-df.factors=toyota.df[,-which(sapply(toyota.df, class) == "factor")]
-df.factors = df.factors[ , -which(names(df.factors) %in% c("KM","Price","QuartTax","HP","Doors"))]
+df.factors <- toyota.df[,-which(sapply(toyota.df, class) == "factor")] %>% 
+  select(-c("KM","Price","QuartTax","HP","Doors"))
 
 head(df.factors)
 
-fit.nofactor = lm(df.factors$Price.sqrt~.,data=df.factors)
+fit.nofactor = lm(Price.log ~ ., data = df.factors)
 summary(fit.nofactor)
 
-mod.df = toyota.df[ , -which(names(toyota.df) %in% c("Doors","HP","Gears","QuartTax","KM","Period","Price"))]
+mod.df <- toyota.df %>% 
+  select(-c("Doors", "HP", "Gears", "QuartTax", "KM", "Period", "Price"))
 
-head(mod.df)
+fit1 <- lm(Price.log ~ ., data = mod.df)
+summary(fit1)
 
-fit = lm(mod.df$Price.sqrt~.,data=mod.df)
-summary(fit)
+mod2.df <- mod.df %>% 
+  select(-c("Doors4", "Doors5", "Metallic", "Automatic", "Fuel_Type"))
 
-mod2.df = mod.df[ , -which(names(mod.df) %in% c("Doors4","Doors5","Metallic","Automatic","Fuel_Type"))]
-
-fit2 = lm(mod2.df$Price.sqrt~.,data=mod2.df)
+fit2 <- lm(Price.log ~ ., data=mod2.df)
 summary(fit2)
 
-fitW = lm(mod2.df$Price.sqrt~Age+CC+Guarantee+BOVAG+KM.sqrt+HP.cube+QuartTax.cube+I(Weight^-2)+I(Weight^-3)+I(Weight^-4),data=mod2.df)
-summary(fitW)
+fit3 <- lm(Price.log ~ Age + CC + Guarantee + BOVAG + KM.sqrt + HP.cube + 
+             QuartTax.cube + I(Weight^-2) + I(Weight^-3) + I(Weight^-4)
+           , data=mod2.df)
+summary(fit3)
 
-confint(fit,"Age",.95)
 
-confint(fit2,"Age",.95)
+fit_final <- 
+  lm(Price.log ~ 
+       Age + CC + Guarantee + BOVAG + KM.sqrt + HP.cube + QuartTax.cube + Weight
+     , data=toyota.df)
 
-confint(fitW,"Age",.95)
+summary(fit_final)
+vif(fit_final)
+plot(fit_final, 1:4)
 
-vif(fit2)
-
-plot(fitW,1)
-
-plot(fitW,2)
-
-plot(fitW,3)
-
-plot(fitW,4)
-
-plot(fitW,5)

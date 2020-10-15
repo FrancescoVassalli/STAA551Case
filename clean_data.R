@@ -18,7 +18,6 @@ wd <- getActiveDocumentContext()$path %>% dirname() %>% setwd()
 toyota.df <- na.omit(read_csv('ToyotaCorollaData.csv'))
 
 toyota.df$Fuel_Type <- --(toyota.df$Fuel_Type == 'Diesel')
-toyota.df$Doors <- --(toyota.df$Doors >= 4)
 
 toyota.df %<>% select(-c('Mfg_Month', 'Mfg_Year', 'Cylinders')) 
 toyota.df$Fuel_Type %<>% as.factor()
