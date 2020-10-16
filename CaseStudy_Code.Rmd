@@ -33,7 +33,7 @@ toyota.df <- na.omit(read_csv('ToyotaCorollaData.csv'))
 
 toyota.df$Diesel <- --(toyota.df$Fuel_Type == 'Diesel')
 
-toyota.df %<>% select(-c('Mfg_Month', 'Mfg_Year', 'Cylinders')) 
+toyota.df %<>% select(-c('Mfg_Month', 'Mfg_Year', 'Cylinders', 'Fuel_Type')) 
 toyota.df$Fuel_Type %<>% as.factor()
 toyota.df$Metallic %<>% as.factor()
 toyota.df$Automatic %<>% as.factor()
@@ -60,7 +60,7 @@ boxcox.lm <- lm(Price ~ KM.sqrt + Age + HP + QuartTax + Weight, data = toyota.df
 boxCox(boxcox.lm)
 abline(v = .5)
 
-summary(powerTransform(cbind(KM, Age, HP, QuartTax) ~ 1, toyota.df))
+summary(powerTransform(cbind(KM, Age, HP, QuartTax, Weight) ~ 1, toyota.df))
 
 toyota.df$Price.log <- log(toyota.df$Price)
 toyota.df$HP.cube <- toyota.df$HP^(-.33)
@@ -139,7 +139,7 @@ summary(fit1)
 vif(fit1)
 
 mod2.df <- mod.df %>% 
-  select(-c("Doors", "Metallic", "Fuel_Type"))
+  select(-c("Doors", "Metallic", "Diesel"))
 
 fit2 <- lm(Price.log ~ ., data=mod2.df)
 summary(fit2)
