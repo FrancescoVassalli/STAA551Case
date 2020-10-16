@@ -31,7 +31,7 @@ rm(i, neededPackages)
 ```{r}
 toyota.df <- na.omit(read_csv('ToyotaCorollaData.csv'))
 
-toyota.df$Fuel_Type <- --(toyota.df$Fuel_Type == 'Diesel')
+toyota.df$Diesel <- --(toyota.df$Fuel_Type == 'Diesel')
 
 toyota.df %<>% select(-c('Mfg_Month', 'Mfg_Year', 'Cylinders')) 
 toyota.df$Fuel_Type %<>% as.factor()
@@ -42,19 +42,12 @@ toyota.df$Gears %<>% as.factor()
 toyota.df$BOVAG %<>% as.factor()
 toyota.df$Guarantee %<>% as.factor()
 
-toyota.df$CC[toyota.df$CC>10000]<-toyota.df$CC[toyota.df$CC>10000]/10 # replace typo
+# replace typo
+toyota.df$CC[toyota.df$CC>10000]<-toyota.df$CC[toyota.df$CC>10000]/10 
 
 summary(toyota.df)
-#Only 13 of fuel type CNG, or compressed natural gas. Typically these sorts of vehicles are busses
-#only 28 of the 694 are automatic? That seems odd, but even if that's backwards it won't affect the model, only the interpretation of the results. 
-#55 of the 694 have 4 doors (Including trunk door) which is, uh, something
-#Everything has 
-#Manufacture month and year is redundent due to age variable
-#Cylinders variable is not needed, everything is 4 Cylinders
-#only 19 of the data points have 6 gears, the rest have 5
-#69 of the 694 are not BOVAG dealers
-#Most have a CC of 6 different values, but 9 data points have other values 
-#Of the factor levels that don't have many records, want to be careful about including them
+
+par(mfrow=c(2,3))
 plot(toyota.df$Price, toyota.df$Age) #fairly linear
 plot(toyota.df$KM, toyota.df$Price) #transform here might make sense
 plot(sqrt(toyota.df$KM), toyota.df$Price) #looks much better
@@ -62,8 +55,6 @@ toyota.df$KM.sqrt <- sqrt(toyota.df$KM)
 plot(toyota.df$Weight, toyota.df$Price) #Doesnt look like much of a relationship at all here
 plot(toyota.df$Period, toyota.df$Price) #Not entirely sure whats going on here, should this be a factor? 
 plot(toyota.df$Age, toyota.df$KM) #unsurprisingly, somewhat of a relationship between KM and age, although the sqrt(KM) variable is more linear
-
-
 
 boxcox.lm <- lm(Price ~ KM.sqrt + Age + HP + QuartTax + Weight, data = toyota.df)
 boxCox(boxcox.lm)
@@ -75,30 +66,94 @@ toyota.df$Price.log <- log(toyota.df$Price)
 toyota.df$HP.cube <- toyota.df$HP^(-.33)
 toyota.df$QuartTax.cube <- toyota.df$QuartTax^(.33)
 
-write_csv(toyota.df, "cleanedToyotadata.csv")
+#write_csv(toyota.df, "cleanedToyotadata.csv")
 cor(toyota.df$QuartTax, toyota.df$Weight)
 summary(boxcox.lm)
 ```
 
+- Only 13 of fuel type CNG, or compressed natural gas. Typically these sorts of vehicles are busses
+- Only 28 of the 694 are automatic? That seems odd, but even if that's backwards it won't affect the model, only the interpretation of the results. 
+- 55 of the 694 have 4 doors (Including trunk door) which is, uh, something
+- Manufacture month and year is redundent due to age variable
+- Cylinders variable is not needed, everything is 4 Cylinders
+- Only 19 of the data points have 6 gears, the rest have 5
+- 69 of the 694 are not BOVAG dealers
+- Most have a CC of 6 different values, but 9 data points have other values 
+- Of the factor levels that don't have many records, want to be careful about including them
+
 ## Model building 
 
 ```{r}
-toyota.df <- toyota.df[toyota.df$Weight<1600,] # Remove heavy car
+# Remove heavy car
+toyota.df <- toyota.df[toyota.df$Weight<1600,] 
 
 (cor <- cor(toyota.df[,c("Price", "Age", "KM", "HP", "CC", "QuartTax", "Weight", "Period")]))
 
-#### Model2.R code goes here - should update order of predictors to follow correlations #####
-## and should include anovas 
+#### Construct Model ####
+## Quantitative predictors first 
+
+## Transform variables
+df.factors <- toyota.df[,-which(sapply(toyota.df, class) == "factor")] %>% 
+  select(-c("KM","Price","QuartTax","HP","Doors"))
+df.factors <- df.factors %>% select(Price.log, Age, KM.sqrt, Weight, HP.cube, 
+                                    QuartTax.cube, CC, Period)
+
+head(df.factors)
+
+fit.nofactor <- lm(Price.log ~ ., data = df.factors)
+anova(fit.nofactor)
+  # remove period?
+
+fit.noperiod <- lm(Price.log ~ ., data = df.factors[,-8])
+anova(fit.noperiod)
+  
+# Diagnostics for fit.noperiod
+par(mfrow=c(2,2))
+plot(fit.noperiod, 1:4)
+
+resid1 <- resid(fit.noperiod)
+par(mfrow=c(3,2))
+par(mar=c(4, 4, 2, 0.5))
+plot(Age,resid1,xlab="Age",ylab="residual")
+abline(a=0,b=0)
+plot(KM.sqrt,resid1,xlab="KM",ylab="residual")
+abline(a=0,b=0)
+plot(Weight,resid1,xlab="Weight",ylab="residual") 
+abline(a=0,b=0)
+plot(HP.cube,resid1,xlab="HP",ylab="residual") #i think this just is this way
+abline(a=0,b=0)
+plot(QuartTax.cube,resid1,xlab="QuartTax",ylab="residual")
+abline(a=0,b=0)
+plot(CC,resid1,xlab="CC",ylab="residual")
+abline(a=0,b=0)
+
+vif(fit.noperiod)
+
+## Add categorical variables one at a time
+mod.df <- toyota.df %>% 
+  select(-c("HP", "Gears", "QuartTax", "KM", "Price", "Automatic")) %>%
+  select(Price.log, Age, KM.sqrt, Weight, HP.cube, QuartTax.cube, CC, Period, everything())
+
+fit1 <- lm(Price.log ~ ., data = mod.df)
+summary(fit1)
+vif(fit1)
+
+mod2.df <- mod.df %>% 
+  select(-c("Doors", "Metallic", "Fuel_Type"))
+
+fit2 <- lm(Price.log ~ ., data=mod2.df)
+summary(fit2)
+
+fit_final <- 
+  lm(Price.log ~ 
+       Age + KM.sqrt +  Weight + HP.cube + QuartTax.cube + CC + Guarantee + BOVAG 
+     , data=toyota.df)
+summary(fit_final)
 
 ```
 
 ## Final model diagnostics and assumption checks
 ```{r}
-
-fit_final <- lm(Price.log ~ 
-       Age + CC + Guarantee + BOVAG + KM.sqrt + HP.cube + QuartTax.cube + Weight
-     , data=toyota.df)
-
 anova(fit_final)
 summary(fit_final)
 vif(fit_final)
@@ -106,15 +161,22 @@ vif(fit_final)
 par(mfrow=c(2,2))
 plot(fit_final, 1:4)
 
+resid_final <- resid(fit_final)
+par(mfrow=c(3,2))
+par(mar=c(4, 4, 2, 0.5))
+plot(Age,resid_final,xlab="Age",ylab="residual")
+abline(a=0,b=0)
+plot(KM.sqrt,resid_final,xlab="KM",ylab="residual")
+abline(a=0,b=0)
+plot(Weight,resid_final,xlab="Weight",ylab="residual") 
+abline(a=0,b=0)
+plot(HP.cube,resid_final,xlab="HP",ylab="residual") #i think this just is this way
+abline(a=0,b=0)
+plot(QuartTax.cube,resid_final,xlab="QuartTax",ylab="residual")
+abline(a=0,b=0)
+plot(CC,resid_final,xlab="CC",ylab="residual")
+abline(a=0,b=0)
 
-### I tried WLs with both KM and Weight and it didn't improve variance at all 
-fit_KM <- lm(Price.log ~ KM, data = toyota.df)
-absres <- abs(summary(fit_weight)$residuals)
-lm_res <- lm(absres ~ toyota.df$Weight)
-est.var <-  (fitted(lm_res))^2 
-fit_wls <- lm(Price.log ~ KM, weights = 1/est.var, data=toyota.df)
-summary(fit_KM)
-summary(fit_wls)
 
 ```
 
