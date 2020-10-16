@@ -1,0 +1,176 @@
+---
+title: "CaseStudy_Code"
+author: "Hanna McCaslin"
+date: "10/15/2020"
+output: pdf_document
+---
+```{r, include = F}
+neededPackages <- c("tidyverse"
+                   , "magrittr"
+                   , "rstudioapi"
+                   , "rlang"
+                   , "car"
+                   , "xtable"
+                   , "ggplot2"
+                   ,"reshape2"
+                   ,"comprehenr"
+                   #add more packages if needed here
+)
+for (i in neededPackages){
+  if( !is.element(i, .packages(all.available = TRUE)) ) {
+    install.packages(i)
+  }
+  library(i,character.only = TRUE)
+}
+rm(i, neededPackages)
+```
+
+## Data cleaning
+
+```{r}
+toyota.df <- na.omit(read_csv('ToyotaCorollaData.csv'))
+toyota.df$Diesel <- --(toyota.df$Fuel_Type == 'Diesel')
+toyota.df %<>% select(-c('Mfg_Month', 'Mfg_Year', 'Cylinders')) 
+toyota.df$Fuel_Type %<>% as.factor()
+toyota.df$Metallic %<>% as.factor()
+toyota.df$Automatic %<>% as.factor()
+toyota.df$Doors %<>% as.factor()
+toyota.df$Gears %<>% as.factor()
+toyota.df$BOVAG %<>% as.factor()
+toyota.df$Guarantee %<>% as.factor()
+# replace typo
+toyota.df$CC[toyota.df$CC>10000]<-toyota.df$CC[toyota.df$CC>10000]/10 
+summary(toyota.df)
+par(mfrow=c(2,3))
+plot(toyota.df$Price, toyota.df$Age) #fairly linear
+plot(toyota.df$KM, toyota.df$Price) #transform here might make sense
+plot(sqrt(toyota.df$KM), toyota.df$Price) #looks much better
+toyota.df$KM.sqrt <- sqrt(toyota.df$KM)
+plot(toyota.df$Weight, toyota.df$Price) #Doesnt look like much of a relationship at all here
+plot(toyota.df$Period, toyota.df$Price) #Not entirely sure whats going on here, should this be a factor? 
+plot(toyota.df$Age, toyota.df$KM) #unsurprisingly, somewhat of a relationship between KM and age, although the sqrt(KM) variable is more linear
+boxcox.lm <- lm(Price ~ KM.sqrt + Age + HP + QuartTax + Weight, data = toyota.df)
+boxCox(boxcox.lm)
+abline(v = .5)
+summary(powerTransform(cbind(Price,Weight,KM, Age, HP, QuartTax) ~ 1, toyota.df))
+toyota.df$Price.log <- log(toyota.df$Price)
+toyota.df$HP.cube <- toyota.df$HP^(-.33)
+toyota.df$QuartTax.cube <- toyota.df$QuartTax^(.33)
+#write_csv(toyota.df, "cleanedToyotadata.csv")
+cor(toyota.df$QuartTax, toyota.df$Weight)
+summary(boxcox.lm)
+```
+
+- Only 13 of fuel type CNG, or compressed natural gas. Typically these sorts of vehicles are busses
+- Only 28 of the 694 are automatic? That seems odd, but even if that's backwards it won't affect the model, only the interpretation of the results. 
+- 55 of the 694 have 4 doors (Including trunk door) which is, uh, something
+- Manufacture month and year is redundent due to age variable
+- Cylinders variable is not needed, everything is 4 Cylinders
+- Only 19 of the data points have 6 gears, the rest have 5
+- 69 of the 694 are not BOVAG dealers
+- Most have a CC of 6 different values, but 9 data points have other values 
+- Of the factor levels that don't have many records, want to be careful about including them
+## Model building 
+```{r}
+# Remove heavy car
+toyota.df <- toyota.df[toyota.df$Weight<1600,] 
+(cor <- cor(toyota.df[,c("Price", "Age", "KM", "HP", "CC", "QuartTax", "Weight", "Period")]))
+#### Construct Model ####
+## Quantitative predictors first 
+## Transform variables
+df.factors <- toyota.df[,-which(sapply(toyota.df, class) == "factor")] %>% 
+  select(-c("KM","Price","QuartTax","HP","Doors"))
+df.factors <- df.factors %>% select(Price, Age, KM.sqrt, Weight, HP.cube, 
+                                    QuartTax.cube, CC, Period)
+head(df.factors)
+fit.nofactor <- lm(sqrt(Price) ~ ., data = df.factors)
+summary(fit.nofactor)
+  # remove period?
+fit.noperiod <- lm(sqrt(Price) ~ ., data = df.factors[,-8])
+summary(fit.noperiod)
+  
+# Diagnostics for fit.noperiod
+par(mfrow=c(2,2))
+plot(fit.noperiod, 1:4)
+resid1 <- resid(fit.noperiod)
+par(mfrow=c(3,2))
+par(mar=c(4, 4, 2, 0.5))
+plot(Age,resid1,xlab="Age",ylab="residual")
+abline(a=0,b=0)
+plot(KM.sqrt,resid1,xlab="KM",ylab="residual")
+abline(a=0,b=0)
+plot(Weight,resid1,xlab="Weight",ylab="residual") 
+abline(a=0,b=0)
+plot(HP.cube,resid1,xlab="HP",ylab="residual") #i think this just is this way
+abline(a=0,b=0)
+plot(QuartTax.cube,resid1,xlab="QuartTax",ylab="residual")
+abline(a=0,b=0)
+plot(CC,resid1,xlab="CC",ylab="residual")
+abline(a=0,b=0)
+vif(fit.noperiod)
+## Add categorical variables one at a time
+mod.df <- toyota.df %>% 
+  select(-c("HP", "Gears", "QuartTax", "KM", "Price", "Automatic")) %>%
+  select(Price, Age, KM.sqrt, Weight, HP, QuartTax, CC, Period, everything())
+fit1 <- lm(sqrt(Price) ~ ., data = mod.df)
+summary(fit1)
+vif(fit1)
+mod2.df <- mod.df %>% 
+  select(-c("Doors", "Metallic", "Fuel_Type"))
+fit2 <- lm(sqrt(Price) ~ ., data=mod2.df)
+summary(fit2)
+fit_final <- 
+  lm(sqrt(Price) ~ 
+       Age + KM.sqrt +  Weight + HP + sqrt(QuartTax) + CC + Guarantee + BOVAG 
+     , data=toyota.df)
+summary(fit_final)
+plot(fit_final,1)
+plot(fit_final,2)
+plot(fit_final,3)
+plot(fit_final,4)
+plot(fit_final,5)
+```
+## Final model diagnostics and assumption checks
+```{r}
+anova(fit_final)
+summary(fit_final)
+vif(fit_final)
+par(mfrow=c(2,2))
+plot(fit_final, 1:4)
+#inspect WLS
+res.fit=lm(abs(fitW$residuals)~toyota.df$Age+toyota.df$KM.sqrt+toyota.df$HP+sqrt(toyota.df$QuartTax)+toyota.df$Weight)
+summary(res.fit)
+res.fitW=lm(abs(fitW$residuals)~toyota.df$Weight)
+summary(res.fitW)
+fit.wls = lm(Price.sqrt~Age+CC+Guarantee+BOVAG+KM.sqrt+HP+sqrt(QuartTax)+Weight,data=toyota.df,weights=1/predict(res.fitW))
+summary(fit.wls)
+plot(fit.wls,1)
+res.fitWR=lm(abs(fit.wls$residuals)~toyota.df$Weight)
+summary(res.fitW)
+fit.wls = lm(Price.sqrt~Age+CC+Guarantee+BOVAG+KM.sqrt+HP+sqrt(QuartTax)+Weight,data=toyota.df,weights=1/predict(res.fitWR))
+summary(fit.wls)
+resid_final <- resid(fit_final)
+par(mfrow=c(3,2))
+par(mar=c(4, 4, 2, 0.5))
+plot(Age,resid_final,xlab="Age",ylab="residual")
+abline(a=0,b=0)
+plot(KM.sqrt,resid_final,xlab="KM",ylab="residual")
+abline(a=0,b=0)
+plot(Weight,resid_final,xlab="Weight",ylab="residual") 
+abline(a=0,b=0)
+plot(HP.cube,resid_final,xlab="HP",ylab="residual") #i think this just is this way
+abline(a=0,b=0)
+plot(QuartTax.cube,resid_final,xlab="QuartTax",ylab="residual")
+abline(a=0,b=0)
+plot(CC,resid_final,xlab="CC",ylab="residual")
+abline(a=0,b=0)
+```
+```{r, include = F}
+# Latex tables for report
+cor.xtab <- xtable(cor, digits = 3)
+print(cor.xtab)
+anova_final <- xtable(anova(fitW), digits = 3)
+print(anova_final)
+summary_final <- xtable(summary(fitW), digits = 5)
+print(summary_final)
+```
